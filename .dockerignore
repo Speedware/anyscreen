@@ -1,0 +1,9 @@
+node_modules
+server/node_modules
+server/db/*.db
+server/db/*.db-*
+server/uploads/content
+server/uploads/thumbnails
+android
+.git
+*.log

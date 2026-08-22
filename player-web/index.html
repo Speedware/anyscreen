@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anyscreen Player</title>
+  <link rel="stylesheet" href="/player/style.css" />
+</head>
+<body>
+  <div id="stage" data-rotation="0"></div>
+  <div id="pairing" class="pairing-overlay" hidden>
+    <div class="pairing-box">
+      <div class="brand">Any<span>screen</span></div>
+      <p>Enter this pairing code in the control panel</p>
+      <div class="code-boxes" id="pairing-code"></div>
+      <p class="pairing-expiry">This code expires in <span id="pairing-countdown">--:--</span></p>
+    </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/player/player.js"></script>
+</body>
+</html>

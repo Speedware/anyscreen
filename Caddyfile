@@ -1,0 +1,3 @@
+anyscreen.speedware.tech {
+	reverse_proxy anyscreen:3001
+}
