@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_DIR="${ANYSCREEN_DIR:-$HOME/anyscreen}"
 COMPOSE_PROJECT_NAME="anyscreen"
 DATA_VOLUME="${COMPOSE_PROJECT_NAME}_anyscreen_data"
+DEFAULT_REPO_URL="https://github.com/Speedware/anyscreen.git"
 
 REPO_URL=""
 BACKUP_ONLY=""
@@ -17,7 +18,7 @@ Usage:
   ./deploy.sh --restore <backup.tar.gz> [git-repo-url]
 
 Run with no arguments on an existing install to update it in place.
-Run with a git URL for a first-time install.
+Run with no arguments (or a git URL to use a fork) for a first-time install.
 Use --backup to snapshot the current data volume (uploads, database, pairings, schedules).
 Use --restore to load a snapshot from another server into this one before starting.
 USAGE
@@ -106,9 +107,7 @@ elif [[ -d "$PROJECT_DIR" && -n "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]]; then
   echo "$PROJECT_DIR already exists and isn't a git checkout — refusing to guess. Move it aside or set ANYSCREEN_DIR to a different path." >&2
   exit 1
 else
-  if [[ -z "$REPO_URL" ]]; then
-    read -rp "Git repository URL for Anyscreen: " REPO_URL
-  fi
+  REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
   git clone "$REPO_URL" "$PROJECT_DIR"
   cd "$PROJECT_DIR"
 fi
@@ -151,14 +150,14 @@ write_caddyfile() {
 }
 
 if [[ -n "$current_domain" && "$current_domain" != "your-domain.com" ]]; then
-  read -rp "Domain '$current_domain' already configured — keep it? [Y/n] " keep
+  read -rp "Domain '$current_domain' already configured — keep it? [Y/n] " keep < /dev/tty
   keep="${keep:-Y}"
   if [[ "$keep" =~ ^[Nn] ]]; then
-    read -rp "New domain: " new_domain
+    read -rp "New domain: " new_domain < /dev/tty
     write_caddyfile "$new_domain"
   fi
 else
-  read -rp "Domain for this Anyscreen instance: " new_domain
+  read -rp "Domain for this Anyscreen instance: " new_domain < /dev/tty
   write_caddyfile "$new_domain"
 fi
 
