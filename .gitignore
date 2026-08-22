@@ -8,6 +8,7 @@ server/uploads/thumbnails/*
 server/.env
 server/*.apk
 .env
+Caddyfile
 Caddy_data/
 
 android/.gradle/

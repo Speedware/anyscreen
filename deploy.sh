@@ -9,6 +9,7 @@ DEFAULT_REPO_URL="https://github.com/Speedware/anyscreen.git"
 REPO_URL=""
 BACKUP_ONLY=""
 RESTORE_FROM=""
+MODE=""
 
 usage() {
   cat <<'USAGE'
@@ -17,10 +18,8 @@ Usage:
   ./deploy.sh --backup [output.tar.gz]
   ./deploy.sh --restore <backup.tar.gz> [git-repo-url]
 
-Run with no arguments on an existing install to update it in place.
-Run with no arguments (or a git URL to use a fork) for a first-time install.
-Use --backup to snapshot the current data volume (uploads, database, pairings, schedules).
-Use --restore to load a snapshot from another server into this one before starting.
+Run with no arguments for an interactive menu: update, fresh install, or migrate.
+Use --backup / --restore to script those same actions without prompts.
 USAGE
 }
 
@@ -60,21 +59,71 @@ as_root() {
   fi
 }
 
-if [[ -n "$BACKUP_ONLY" ]]; then
-  log "Backing up data volume to $BACKUP_ONLY"
+do_backup() {
+  local dest="$1"
   if ! docker volume inspect "$DATA_VOLUME" &>/dev/null; then
     echo "Volume $DATA_VOLUME does not exist — nothing to back up." >&2
     exit 1
   fi
-  mkdir -p "$(dirname "$BACKUP_ONLY")"
-  backup_dir="$(cd "$(dirname "$BACKUP_ONLY")" && pwd)"
-  backup_name="$(basename "$BACKUP_ONLY")"
+  mkdir -p "$(dirname "$dest")"
+  local backup_dir backup_name
+  backup_dir="$(cd "$(dirname "$dest")" && pwd)"
+  backup_name="$(basename "$dest")"
   docker run --rm \
     -v "$DATA_VOLUME:/data" \
     -v "$backup_dir:/backup" \
     alpine tar czf "/backup/$backup_name" -C / data
   echo "Wrote $backup_dir/$backup_name"
+}
+
+if [[ -n "$BACKUP_ONLY" ]]; then
+  log "Backing up data volume to $BACKUP_ONLY"
+  do_backup "$BACKUP_ONLY"
   exit 0
+fi
+
+if [[ -z "$RESTORE_FROM" ]]; then
+  existing=false
+  [[ -d "$PROJECT_DIR" && -n "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]] && existing=true
+  command -v docker &>/dev/null && docker volume inspect "$DATA_VOLUME" &>/dev/null && existing=true
+
+  echo ""
+  if [[ "$existing" == true ]]; then
+    echo "An existing Anyscreen installation was detected on this server."
+    echo "  1) Update        — pull the latest code, keep all data (uploads, database, pairings, schedules)"
+    echo "  2) Fresh install — delete everything and start over (existing data will be LOST)"
+    echo "  3) Migrate       — import a backup from another server, or export this server's data to move it"
+    read -rp "Choose [1/2/3] (default 1): " choice < /dev/tty
+    case "$choice" in
+      2) MODE="fresh" ;;
+      3) MODE="migrate" ;;
+      *) MODE="update" ;;
+    esac
+  else
+    echo "No existing Anyscreen installation detected on this server."
+    echo "  1) Fresh install — set up a new instance"
+    echo "  2) Import        — restore data migrated from another server"
+    read -rp "Choose [1/2] (default 1): " choice < /dev/tty
+    case "$choice" in
+      2) MODE="migrate" ;;
+      *) MODE="fresh" ;;
+    esac
+  fi
+
+  if [[ "$MODE" == "migrate" ]]; then
+    read -rp "Import a backup here, or export this server's data? [import/export] (default import): " direction < /dev/tty
+    if [[ "$direction" =~ ^[Ee] ]]; then
+      default_name="anyscreen-backup-$(date +%Y%m%d-%H%M%S).tar.gz"
+      read -rp "Save backup to [$default_name]: " out_path < /dev/tty
+      log "Backing up data volume to ${out_path:-$default_name}"
+      do_backup "${out_path:-$default_name}"
+      exit 0
+    fi
+    read -rp "Path to the backup file to import: " RESTORE_FROM < /dev/tty
+    MODE="update"
+  fi
+else
+  MODE="update"
 fi
 
 log "Checking git"
@@ -84,13 +133,9 @@ if ! command -v git &>/dev/null; then
 fi
 
 log "Checking Docker"
-if ! command -v docker &>/dev/null; then
+if ! command -v docker &>/dev/null || ! docker compose version &>/dev/null; then
   curl -fsSL https://get.docker.com | as_root sh
   as_root systemctl enable --now docker
-fi
-if ! docker compose version &>/dev/null; then
-  as_root apt-get update -y
-  as_root apt-get install -y docker-compose-plugin
 fi
 
 log "Checking Node.js"
@@ -100,12 +145,31 @@ if ! command -v node &>/dev/null || [[ "$(node -v | sed 's/v//;s/\..*//')" -lt 2
 fi
 
 log "Fetching Anyscreen"
-if [[ -d "$PROJECT_DIR/.git" ]]; then
+if [[ "$MODE" == "fresh" ]]; then
+  if [[ -f "$PROJECT_DIR/docker-compose.yml" ]]; then
+    (cd "$PROJECT_DIR" && docker compose down -v) || true
+  fi
+  rm -rf "$PROJECT_DIR"
+  docker volume rm "$DATA_VOLUME" &>/dev/null || true
+  REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
+  git clone "$REPO_URL" "$PROJECT_DIR"
+  cd "$PROJECT_DIR"
+elif [[ -d "$PROJECT_DIR/.git" ]]; then
   cd "$PROJECT_DIR"
   git pull
 elif [[ -d "$PROJECT_DIR" && -n "$(ls -A "$PROJECT_DIR" 2>/dev/null)" ]]; then
-  echo "$PROJECT_DIR already exists and isn't a git checkout — refusing to guess. Move it aside or set ANYSCREEN_DIR to a different path." >&2
-  exit 1
+  log "Existing non-git install found — replacing source code, keeping .env/Caddyfile and all data"
+  saved_env=""
+  saved_caddyfile=""
+  [[ -f "$PROJECT_DIR/.env" ]] && saved_env="$(cat "$PROJECT_DIR/.env")"
+  [[ -f "$PROJECT_DIR/Caddyfile" ]] && saved_caddyfile="$(cat "$PROJECT_DIR/Caddyfile")"
+  [[ -f "$PROJECT_DIR/docker-compose.yml" ]] && (cd "$PROJECT_DIR" && docker compose down) || true
+  mv "$PROJECT_DIR" "${PROJECT_DIR}.old-$(date +%Y%m%d-%H%M%S)"
+  REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
+  git clone "$REPO_URL" "$PROJECT_DIR"
+  cd "$PROJECT_DIR"
+  [[ -n "$saved_env" ]] && printf '%s\n' "$saved_env" > .env
+  [[ -n "$saved_caddyfile" ]] && printf '%s\n' "$saved_caddyfile" > Caddyfile
 else
   REPO_URL="${REPO_URL:-$DEFAULT_REPO_URL}"
   git clone "$REPO_URL" "$PROJECT_DIR"
