@@ -10,6 +10,8 @@ server/*.apk
 .env
 Caddyfile
 Caddy_data/
+*.keystore
+*.jks
 
 android/.gradle/
 android/.idea/
