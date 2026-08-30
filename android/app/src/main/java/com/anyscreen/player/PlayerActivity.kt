@@ -22,7 +22,6 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import coil.ImageLoader
 import coil.decode.GifDecoder
 import coil.load
-import coil.request.listener
 import com.anyscreen.player.databinding.ActivityPlayerBinding
 import okhttp3.Call
 import okhttp3.Callback
