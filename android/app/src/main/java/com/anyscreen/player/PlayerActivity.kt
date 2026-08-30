@@ -211,6 +211,14 @@ class PlayerActivity : AppCompatActivity(), SocketManager.Listener {
             )
     }
 
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        prefs.serverUrl = null
+        prefs.clearCredentials()
+        startActivity(Intent(this, PairingActivity::class.java))
+        finish()
+    }
+
     override fun onPairingCode(code: String) { }
 
     override fun onPaired(deviceId: String, token: String) { }
