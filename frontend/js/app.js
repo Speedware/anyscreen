@@ -36,7 +36,7 @@ function layoutShell(activePath) {
   app.innerHTML = `
     <div class="layout">
       <div class="sidebar">
-        <div class="brand">Any<span>screen</span></div>
+        <div class="brand"><img class="brand-logo" src="/logo.svg" alt="" /><div>Any<span>screen</span></div></div>
         <nav>${nav}</nav>
         <div class="user-box">
           <span class="avatar-circle">${escapeHtml((user?.role ?? '?').charAt(0).toUpperCase())}</span>

@@ -6,7 +6,7 @@ export async function renderLogin(root, onSuccess) {
   root.innerHTML = `
     <div class="auth-screen">
       <div class="auth-box card">
-        <div class="brand">Any<span>screen</span></div>
+        <div class="brand"><img class="brand-logo" src="/logo.svg" alt="" /><div>Any<span>screen</span></div></div>
         <div id="error"></div>
         <form id="auth-form">
           ${setupNeeded ? '<p class="text-dim">Create the first admin account to get started.</p>' : ''}

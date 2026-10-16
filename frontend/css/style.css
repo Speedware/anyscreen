@@ -89,7 +89,8 @@ label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 
   display: flex;
   flex-direction: column;
 }
-.sidebar .brand { font-size: 20px; font-weight: 800; padding: 0 20px 20px; letter-spacing: -0.5px; }
+.sidebar .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; padding: 0 20px 20px; letter-spacing: -0.5px; }
+.sidebar .brand-logo { width: 28px; height: 28px; flex-shrink: 0; }
 .sidebar .brand span { color: var(--accent); }
 .sidebar nav a {
   display: block;
@@ -231,7 +232,8 @@ tr.clickable-row.selected { background: rgba(79, 124, 255, 0.12); }
 
 .auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
 .auth-box { width: 380px; max-width: 90vw; }
-.auth-box .brand { font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 24px; }
+.auth-box .brand { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 26px; font-weight: 800; margin-bottom: 24px; }
+.auth-box .brand-logo { width: 64px; height: 64px; }
 .auth-box .brand span { color: var(--accent); }
 
 .day-picker { display: flex; gap: 6px; flex-wrap: wrap; }

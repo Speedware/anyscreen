@@ -85,6 +85,7 @@ html, body {
   display: none;
 }
 .pairing-box { text-align: center; }
+.pairing-box .brand-logo { width: 120px; height: 120px; margin-bottom: 16px; }
 .pairing-box .brand { font-size: 42px; font-weight: 800; margin-bottom: 20px; }
 .pairing-box .brand span { color: #4f7cff; }
 .pairing-box p { font-size: 20px; color: #93a0bd; }
