@@ -10,6 +10,16 @@ function statusBadgeHtml(c) {
   return c.optimized ? '<span class="badge optimized">Optimized</span>' : '';
 }
 
+function downloadName(c) {
+  const ext = c.url.match(/\.[a-z0-9]+$/i)?.[0] ?? '';
+  return ext && !c.name.toLowerCase().endsWith(ext.toLowerCase()) ? c.name + ext : c.name;
+}
+
+function downloadLinkHtml(c) {
+  if (c.source !== 'upload') return '';
+  return `<a class="secondary" href="${escapeHtml(c.url)}" download="${escapeHtml(downloadName(c))}" data-download>Download</a>`;
+}
+
 function rowHtml(c, isAdmin) {
   const details = `${c.type}${c.durationSeconds ? ` · ${c.durationSeconds}s` : ''}${c.muted ? ' · muted' : ''}`;
   return `
@@ -17,7 +27,8 @@ function rowHtml(c, isAdmin) {
       <td>${TYPE_ICON[c.type]} ${escapeHtml(c.name)}</td>
       <td class="text-dim">${details}</td>
       <td data-status>${statusBadgeHtml(c)}</td>
-      <td style="text-align:right;white-space:nowrap">${isAdmin ? `
+      <td style="text-align:right;white-space:nowrap">
+        ${downloadLinkHtml(c)}${isAdmin ? `
         <button class="secondary" data-edit="${c.id}">Edit</button>
         <button class="danger" data-delete="${c.id}">Delete</button>
       ` : ''}</td>
@@ -32,7 +43,7 @@ function previewPanelHtml(item) {
   if (item.type === 'video') {
     media = `<video src="${escapeHtml(item.url)}" controls style="width:100%;max-height:280px;background:#000;border-radius:8px"></video>`;
   } else if (item.type === 'image') {
-    media = `<img src="${escapeHtml(item.url)}" alt="" style="width:100%;max-height:280px;object-fit:contain;background:#000;border-radius:8px" />`;
+    media = `<img src="${escapeHtml(item.url)}" alt="" class="zoomable" data-fullscreen title="Click to view full screen" style="width:100%;max-height:280px;object-fit:contain;background:#000;border-radius:8px" />`;
   } else {
     media = `
       <iframe src="${escapeHtml(item.url)}" style="width:100%;height:280px;border:1px solid var(--border);border-radius:8px;background:#fff"></iframe>
@@ -46,7 +57,34 @@ function previewPanelHtml(item) {
     <div class="text-dim" style="font-size:13px">
       ${item.type}${item.durationSeconds ? ` · ${item.durationSeconds}s` : ''}${item.muted ? ' · muted' : ''}
     </div>
+    ${item.source === 'upload' || item.type === 'image' ? `
+    <div class="flex-row" style="margin-top:12px">
+      ${item.type === 'image' ? '<button class="secondary" data-fullscreen>Full screen</button>' : ''}
+      ${downloadLinkHtml(item)}
+    </div>` : ''}
   `;
+}
+
+function openImageViewer(url) {
+  const viewer = document.createElement('div');
+  viewer.className = 'image-viewer';
+  viewer.innerHTML = `<img src="${escapeHtml(url)}" alt="" />`;
+  document.body.appendChild(viewer);
+
+  const close = () => {
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    if (document.fullscreenElement === viewer) document.exitFullscreen().catch(() => {});
+    viewer.remove();
+  };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  const onFullscreenChange = () => { if (!document.fullscreenElement) close(); };
+
+  viewer.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  viewer.requestFullscreen?.()
+    .then(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+    .catch(() => {});
 }
 
 export async function renderContent(root) {
@@ -88,9 +126,15 @@ export async function renderContent(root) {
 
   root.querySelectorAll('[data-content-row]').forEach((row) =>
     row.addEventListener('click', (e) => {
-      if (e.target.closest('[data-edit], [data-delete]')) return;
+      if (e.target.closest('[data-edit], [data-delete], [data-download]')) return;
       selectRow(row.dataset.contentRow);
     }));
+
+  document.getElementById('content-preview').addEventListener('click', (e) => {
+    if (!e.target.closest('[data-fullscreen]')) return;
+    const item = content.find((c) => c.id === selectedId);
+    if (item?.type === 'image') openImageViewer(item.url);
+  });
 
   root.querySelectorAll('[data-edit]').forEach((btn) =>
     btn.addEventListener('click', () => openEditModal(root, content.find((c) => c.id === btn.dataset.edit))));
